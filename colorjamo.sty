@@ -1,0 +1,31 @@
+% written by Dohyun Kim
+% Public Domain
+
+\ProvidesPackage{colorjamo}[2015/11/30 v0.1 Color Old Hangul Jamo]
+
+\RequirePackage{luatexko}
+
+\newluatexattribute\colorjamoattr
+\newluatexattribute\colorjamochoattr
+\newluatexattribute\colorjamojungattr
+\newluatexattribute\colorjamojongattr
+\newluatexattribute\colorjamotransattr
+
+\RequireLuaModule{colorjamo}
+
+\newenvironment{colorjamo}
+  {\colorjamoattr\@ne}
+  {\unsetluatexattribute\colorjamoattr}
+
+\protected\def\jamocolorcho     #1{\colorjamochoattr   "#1\relax}
+\protected\def\jamocolorjung    #1{\colorjamojungattr  "#1\relax}
+\protected\def\jamocolorjong    #1{\colorjamojongattr  "#1\relax}
+\protected\def\jamotransparency #1{\colorjamotransattr "#1\relax}
+
+% default values
+\jamocolorcho {FF0000} % red
+\jamocolorjung{00FF00} % green
+\jamocolorjong{0000FF} % blue
+\jamotransparency {AA} % FF: full opaque, 00: full transparency
+
+\endinput
