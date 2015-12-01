@@ -27,16 +27,23 @@ local insert_before = node.insert_before
 local insert_after  = node.insert_after
 local addtocallback = luatexbase.add_to_callback
 
-local colorstack    = pdf.newcolorstack and pdf.newcolorstack("/TransGs1 gs 0 g","direct",true)
 local push_color    = node.new("whatsit","pdf_colorstack")
-push_color.stack    = colorstack or 0
+push_color.stack    = 0
 push_color.command  = 1
 local pop_color     = nodecopy(push_color)
 pop_color.command   = 2
-local pop_trans
-if not colorstack then
-  pop_trans         = node.new("whatsit","pdf_literal")
-  pop_trans.mode    = 2
+
+local push_trans, pop_trans
+local transstack    = pdf.newcolorstack and pdf.newcolorstack("/TransGs1 gs","direct",true)
+if transstack then
+  push_trans        = nodecopy(push_color)
+  push_trans.stack  = transstack
+  pop_trans         = nodecopy(pop_color)
+  pop_trans.stack   = transstack
+else
+  push_trans        = node.new("whatsit","pdf_literal")
+  push_trans.mode   = 2
+  pop_trans         = nodecopy(push_trans)
   pop_trans.data    = "/TransGs1 gs"
 end
 
@@ -68,8 +75,14 @@ local function to_colordata (color, trans)
   for s in sprintf("%06x",color):gmatch("%x%x") do
     t[#t+1] = sprintf("%.3g", tonumber(s, 16) / 0xFF)
   end
-  trans = sprintf("%.3g", trans / 0xFF)
-  return sprintf("/TransGs%s gs %s %s %s rg", trans, t[1], t[2], t[3]), trans
+  if trans == 0xFF then
+    return sprintf("%s %s %s rg", t[1], t[2], t[3])
+  else
+    trans = sprintf("%.3g", trans / 0xFF)
+    res_t = res_t or { }
+    res_t[trans] = true
+    return sprintf("%s %s %s rg", t[1], t[2], t[3]), sprintf("/TransGs%s gs", trans)
+  end
 end
 
 local function do_color_jamo (head, groupcode)
@@ -91,14 +104,15 @@ local function do_color_jamo (head, groupcode)
         end
         colorstart.data, trans = to_colordata(color, has_attribute(curr, colortransattr))
         head = insert_before(head, curr, colorstart)
+        insert_after (head, curr, colorstop)
         -- >> transparency
-        if pop_trans then
+        if trans then
+          local transstart = nodecopy(push_trans)
+          transstart.data  = trans
+          insert_before(head, curr, transstart)
           insert_after(head, curr, nodecopy(pop_trans))
         end
-        res_t = res_t or { }
-        res_t[trans] = true
         -- << transparency
-        insert_after (head, curr, colorstop)
       end
     end
   end
