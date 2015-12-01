@@ -70,18 +70,31 @@ local getpageres = pdf.getpageresources or function() return pdf.pageresources e
 local setpageres = pdf.setpageresources or function(s) pdf.pageresources = s end
 local pgf = { bye = "pgfutil@everybye", extgs = "\\pgf@sys@addpdfresource@extgs@plain" }
 
-local function to_colordata (color, trans)
+local function color_on_off (head, curr, color)
+  local colorstop  = nodecopy(pop_color)
+  insert_after (head, curr, colorstop)
+  local colorstart = nodecopy(push_color)
   local t = {}
   for s in sprintf("%06x",color):gmatch("%x%x") do
     t[#t+1] = sprintf("%.3g", tonumber(s, 16) / 0xFF)
   end
+  colorstart.data = sprintf("%s %s %s rg", t[1], t[2], t[3])
+  return insert_before(head, curr, colorstart)
+end
+
+local function trans_on_off (head, curr, on)
+  local trans = has_attribute(curr, colortransattr)
   if trans == 0xFF then
-    return sprintf("%s %s %s rg", t[1], t[2], t[3])
-  else
+    return head
+  elseif on then
     trans = sprintf("%.3g", trans / 0xFF)
     res_t = res_t or { }
     res_t[trans] = true
-    return sprintf("%s %s %s rg", t[1], t[2], t[3]), sprintf("/TransGs%s gs", trans)
+    local transstart = nodecopy(push_trans)
+    transstart.data  = sprintf("/TransGs%s gs", trans)
+    return insert_before(head, curr, transstart)
+  else
+    insert_after(head, curr, nodecopy(pop_trans))
   end
 end
 
@@ -91,28 +104,19 @@ local function do_color_jamo (head, groupcode)
       curr.head = do_color_jamo(curr.head)
     elseif curr.id == glyph and has_attribute(curr, colorjamoattr) then
       local uni = has_attribute(curr, unicodeattr)
-      if ischo(uni) or isjung(uni) or isjong(uni) then
-        local colorstart = nodecopy(push_color)
-        local colorstop  = nodecopy(pop_color)
-        local color, trans
-        if ischo(uni) then
-          color = has_attribute(curr, colorchoattr)
-        elseif isjung(uni) then
-          color = has_attribute(curr, colorjungattr)
+      if ischo(uni) then
+        head = trans_on_off(head, curr, true)
+        head = color_on_off(head, curr, has_attribute(curr, colorchoattr))
+      elseif isjung(uni) then
+        local nn = curr.next
+        if nn and nn.id == glyph and isjong(has_attribute(nn, unicodeattr)) then
         else
-          color = has_attribute(curr, colorjongattr)
+          trans_on_off(head, curr)
         end
-        colorstart.data, trans = to_colordata(color, has_attribute(curr, colortransattr))
-        head = insert_before(head, curr, colorstart)
-        insert_after (head, curr, colorstop)
-        -- >> transparency
-        if trans then
-          local transstart = nodecopy(push_trans)
-          transstart.data  = trans
-          insert_before(head, curr, transstart)
-          insert_after(head, curr, nodecopy(pop_trans))
-        end
-        -- << transparency
+        color_on_off(head, curr, has_attribute(curr, colorjungattr))
+      elseif isjong(uni) then
+        trans_on_off(head, curr)
+        color_on_off(head, curr, has_attribute(curr, colorjongattr))
       end
     end
   end
