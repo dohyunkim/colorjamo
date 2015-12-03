@@ -21,13 +21,14 @@ local glyph         = node.id("glyph")
 local hlist         = node.id("hlist")
 local vlist         = node.id("vlist")
 local nodecopy      = node.copy
+local nodenew       = node.new
 local traverse      = node.traverse
 local has_attribute = node.has_attribute
 local insert_before = node.insert_before
 local insert_after  = node.insert_after
 local addtocallback = luatexbase.add_to_callback
 
-local push_color    = node.new("whatsit","pdf_colorstack")
+local push_color    = nodenew("whatsit","pdf_colorstack")
 push_color.stack    = 0
 push_color.command  = 1
 local pop_color     = nodecopy(push_color)
@@ -35,19 +36,14 @@ pop_color.command   = 2
 local set_color     = nodecopy(push_color)
 set_color.command   = 0
 
-local push_trans, pop_trans
-local transstack    = pdf.newcolorstack and pdf.newcolorstack("/TransGs1 gs","direct",true)
-if transstack then
-  push_trans        = nodecopy(push_color)
-  push_trans.stack  = transstack
-  pop_trans         = nodecopy(pop_color)
-  pop_trans.stack   = transstack
-else
-  push_trans        = node.new("whatsit","pdf_literal")
-  push_trans.mode   = 2
-  pop_trans         = nodecopy(push_trans)
-  pop_trans.data    = "/TransGs1 gs"
-end
+local res_t, transstack
+local newcolorstack = pdf.newcolorstack
+local atletter = luatexbase.registernumber("catcodetable@atletter")
+local sprintf, concat   = string.format, table.concat
+local gettoks, scantoks = tex.gettoks, tex.scantoks
+local getpageres = pdf.getpageresources or function() return pdf.pageresources end
+local setpageres = pdf.setpageresources or function(s) pdf.pageresources = s end
+local pgf = { bye = "pgfutil@everybye", extgs = "\\pgf@sys@addpdfresource@extgs@plain" }
 
 local function ischo (c)
   return ( c >= 0x1100 and c <= 0x115F )
@@ -64,13 +60,23 @@ local function isjong (c)
   or     ( c >= 0xD7CB and c <= 0xD7FB )
 end
 
-local res_t
-local atletter = luatexbase.registernumber("catcodetable@atletter")
-local sprintf, concat   = string.format, table.concat
-local gettoks, scantoks = tex.gettoks, tex.scantoks
-local getpageres = pdf.getpageresources or function() return pdf.pageresources end
-local setpageres = pdf.setpageresources or function(s) pdf.pageresources = s end
-local pgf = { bye = "pgfutil@everybye", extgs = "\\pgf@sys@addpdfresource@extgs@plain" }
+local function get_trans_node (data)
+  if newcolorstack and data and not transstack then
+    transstack = newcolorstack("/TransGs1 gs","direct",true)
+  end
+  local tr_node
+  data = data and sprintf("/TransGs%s gs", data)
+  if transstack then
+    tr_node = data and nodecopy(push_color) or nodecopy(pop_color)
+    tr_node.stack = transstack
+    tr_node.data  = data or nil
+  else
+    tr_node       = nodenew("whatsit","pdf_literal")
+    tr_node.mode  = 2
+    tr_node.data  = data or "/TransGs1 gs"
+  end
+  return tr_node
+end
 
 local function trans_on_off (head, curr, on)
   local trans = has_attribute(curr, colortransattr)
@@ -80,11 +86,9 @@ local function trans_on_off (head, curr, on)
     trans = sprintf("%.3g", trans / 0xFF)
     res_t = res_t or { }
     res_t[trans] = true
-    local transstart = nodecopy(push_trans)
-    transstart.data  = sprintf("/TransGs%s gs", trans)
-    return insert_before(head, curr, transstart)
+    return insert_before(head, curr, get_trans_node(trans))
   else
-    insert_after(head, curr, nodecopy(pop_trans))
+    insert_after(head, curr, get_trans_node())
   end
 end
 
