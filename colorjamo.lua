@@ -109,24 +109,27 @@ local function color_on_off (head, curr, color, jamo)
 end
 
 local function do_color_jamo (head, groupcode)
-  for curr in traverse(head) do
+  local curr = head
+  while curr do
     if curr.id == hlist or curr.id == vlist then
       curr.head = do_color_jamo(curr.head)
     elseif curr.id == glyph and has_attribute(curr, colorjamoattr) then
       local uni = has_attribute(curr, unicodeattr)
-      if ischo(uni) then
-        head = color_on_off(head, curr, has_attribute(curr, colorchoattr), 1)
-      elseif isjung(uni) then
-        local nn = curr.next
-        if nn and nn.id == glyph and isjong(has_attribute(nn, unicodeattr)) then
-          color_on_off(head, curr, has_attribute(curr, colorjungattr), 2)
-        else
-          color_on_off(head, curr, has_attribute(curr, colorjungattr), 3)
+      if uni and isjung(uni) then
+        local p, n = curr.prev, curr.next
+        if p and p.id == glyph and ischo(has_attribute(p, unicodeattr)) then
+          head = color_on_off(head, p, has_attribute(p, colorchoattr), 1)
+          if n and n.id == glyph and isjong(has_attribute(n, unicodeattr)) then
+            color_on_off(head, curr, has_attribute(curr, colorjungattr), 2)
+            curr = n -- move to jongseong
+            color_on_off(head, curr, has_attribute(curr, colorjongattr), 3)
+          else
+            color_on_off(head, curr, has_attribute(curr, colorjungattr), 3)
+          end
         end
-      elseif isjong(uni) then
-        color_on_off(head, curr, has_attribute(curr, colorjongattr), 3)
       end
     end
+    curr = curr.next
   end
 
   -- >> transparency
