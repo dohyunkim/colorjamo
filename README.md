@@ -15,8 +15,6 @@ You need to have `luatexko` package installed.
 한글...
 \end{colorjamo}
 ```
-The command `\luatexhangulnormalize=2` provided by `luatexko` is recommended
-for colorizing precomposed Hangul syllables.
 
 ## options
 ```
