@@ -21,9 +21,13 @@ local glyph         = node.id("glyph")
 local hlist         = node.id("hlist")
 local vlist         = node.id("vlist")
 local nodenew       = node.new
+local nodecopy      = node.copy
+local noderemove    = node.remove
+local nodefree      = node.free
 local has_attribute = node.has_attribute
 local insert_before = node.insert_before
 local insert_after  = node.insert_after
+local floor         = math.floor
 local addtocallback = luatexbase.add_to_callback
 
 local res_t, transstack
@@ -48,6 +52,10 @@ end
 local function isTC (c)
   return ( c >= 0x11A8 and c <= 0x11FF )
   or     ( c >= 0xD7CB and c <= 0xD7FB )
+end
+
+local function isSYL (c)
+  return ( c >= 0xAC00 and c <= 0xD7A3 )
 end
 
 local function get_trans_node (data)
@@ -158,4 +166,34 @@ local function do_color_jamo (head, groupcode)
   return head
 end
 
-addtocallback("pre_output_filter", do_color_jamo, "colorjamo.preoutputfilter")
+
+local function syllable_jamo (head)
+  local curr, t = head, {}
+  while curr do
+    if curr.id == glyph and has_attribute(curr, colorjamoattr) then
+      local s = curr.char
+      if s and isSYL(s) then
+        s = s - 0xAC00
+        local LC = floor(s / 588) + 0x1100
+        local MV = floor(s % 588 / 28) + 0x1161
+        local TC = s % 28 + 0x11A7
+        for _, j in ipairs{LC, MV, TC} do
+          if j ~= 0x11A7 then
+            local jnode = nodecopy(curr)
+            jnode.char = j
+            head = insert_before(head, curr, jnode)
+          end
+        end
+        head = noderemove(head, curr)
+        t[#t+1] = curr
+      end
+    end
+    curr = curr.next
+  end
+  for _, v in ipairs(t) do nodefree(v) end
+  return head
+end
+
+addtocallback("hpack_filter", syllable_jamo, "colorjamo.syllable_jamo", 1)
+addtocallback("pre_linebreak_filter", syllable_jamo, "colorjamo.syllable_jamo", 1)
+addtocallback("post_linebreak_filter", do_color_jamo, "colorjamo.do_colorjamo")
