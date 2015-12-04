@@ -12,29 +12,19 @@ local colorjamo = colorjamo
 
 local attrs         = luatexbase.attributes
 local colorjamoattr = attrs.colorjamoattr
-local colorchoattr  = attrs.colorjamochoattr
-local colorjungattr = attrs.colorjamojungattr
-local colorjongattr = attrs.colorjamojongattr
-local colortransattr= attrs.colorjamotransattr
+local colorLCattr   = attrs.colorjamochoattr
+local colorMVattr   = attrs.colorjamojungattr
+local colorTCattr   = attrs.colorjamojongattr
+local colorTRattr   = attrs.colorjamotransattr
 local unicodeattr   = attrs.luakounicodeattr or attrs.unicodeattr
 local glyph         = node.id("glyph")
 local hlist         = node.id("hlist")
 local vlist         = node.id("vlist")
-local nodecopy      = node.copy
 local nodenew       = node.new
-local traverse      = node.traverse
 local has_attribute = node.has_attribute
 local insert_before = node.insert_before
 local insert_after  = node.insert_after
 local addtocallback = luatexbase.add_to_callback
-
-local push_color    = nodenew("whatsit","pdf_colorstack")
-push_color.stack    = 0
-push_color.command  = 1
-local pop_color     = nodecopy(push_color)
-pop_color.command   = 2
-local set_color     = nodecopy(push_color)
-set_color.command   = 0
 
 local res_t, transstack
 local newcolorstack = pdf.newcolorstack
@@ -45,67 +35,67 @@ local getpageres = pdf.getpageresources or function() return pdf.pageresources e
 local setpageres = pdf.setpageresources or function(s) pdf.pageresources = s end
 local pgf = { bye = "pgfutil@everybye", extgs = "\\pgf@sys@addpdfresource@extgs@plain" }
 
-local function ischo (c)
+local function isLC (c)
   return ( c >= 0x1100 and c <= 0x115F )
   or     ( c >= 0xA960 and c <= 0xA97C )
 end
 
-local function isjung (c)
+local function isMV (c)
   return ( c >= 0x1160 and c <= 0x11A7 )
   or     ( c >= 0xD7B0 and c <= 0xD7C6 )
 end
 
-local function isjong (c)
+local function isTC (c)
   return ( c >= 0x11A8 and c <= 0x11FF )
   or     ( c >= 0xD7CB and c <= 0xD7FB )
 end
 
 local function get_trans_node (data)
-  if newcolorstack and data and not transstack then
-    transstack = newcolorstack("/TransGs1 gs","direct",true)
-  end
   local tr_node
   data = data and sprintf("/TransGs%s gs", data)
   if transstack then
-    tr_node = data and nodecopy(push_color) or nodecopy(pop_color)
-    tr_node.stack = transstack
-    tr_node.data  = data or nil
+    tr_node         = nodenew("whatsit","pdf_colorstack")
+    tr_node.stack   = transstack
+    tr_node.command = data and 1 or 2
+    tr_node.data    = data or nil
   else
-    tr_node       = nodenew("whatsit","pdf_literal")
-    tr_node.mode  = 2
-    tr_node.data  = data or "/TransGs1 gs"
+    tr_node         = nodenew("whatsit","pdf_literal")
+    tr_node.mode    = 2
+    tr_node.data    = data or "/TransGs1 gs"
   end
   return tr_node
 end
 
-local function trans_on_off (head, curr, on)
-  local trans = has_attribute(curr, colortransattr)
-  if trans == 0xFF then
+local function trans_on_off (head, curr, trans)
+  if not trans then
+    return insert_after(head, curr, get_trans_node())
+  elseif trans == 0xFF then
     return head
-  elseif on then
-    trans = sprintf("%.3g", trans / 0xFF)
-    res_t = res_t or { }
-    res_t[trans] = true
-    return insert_before(head, curr, get_trans_node(trans))
-  else
-    insert_after(head, curr, get_trans_node())
   end
+  if newcolorstack and not transstack then
+    transstack = newcolorstack("/TransGs1 gs","direct",true)
+  end
+  trans = sprintf("%.3g", trans / 0xFF)
+  res_t = res_t or { }
+  res_t[trans] = true
+  head = insert_before(head, curr, get_trans_node(trans))
+  return head, trans
 end
 
-local function color_on_off (head, curr, color, jamo)
-  if jamo == 1 then
-    head = trans_on_off(head, curr, true)
-  elseif jamo == 3 then
-    trans_on_off(head, curr)
-    insert_after(head, curr, nodecopy(pop_color))
+local function color_on_off (head, curr, color, command)
+  local clr_node   = nodenew("whatsit","pdf_colorstack")
+  clr_node.stack   = 0
+  clr_node.command = command or 2
+  if not command then
+    return insert_after(head, curr, clr_node)
   end
+  color = has_attribute(curr, color) or 0
   local t = {}
   for s in sprintf("%06x",color):gmatch("%x%x") do
     t[#t+1] = sprintf("%.3g", tonumber(s, 16) / 0xFF)
   end
-  local colornode = jamo == 1 and nodecopy(push_color) or nodecopy(set_color)
-  colornode.data = sprintf("%s %s %s rg", t[1], t[2], t[3])
-  return insert_before(head, curr, colornode)
+  clr_node.data = sprintf("%s %s %s rg", t[1], t[2], t[3])
+  return insert_before(head, curr, clr_node)
 end
 
 local function do_color_jamo (head, groupcode)
@@ -115,16 +105,20 @@ local function do_color_jamo (head, groupcode)
       curr.head = do_color_jamo(curr.head)
     elseif curr.id == glyph and has_attribute(curr, colorjamoattr) then
       local uni = has_attribute(curr, unicodeattr)
-      if uni and isjung(uni) then
-        local p, n = curr.prev, curr.next
-        if p and p.id == glyph and ischo(has_attribute(p, unicodeattr)) then
-          head = color_on_off(head, p, has_attribute(p, colorchoattr), 1)
-          if n and n.id == glyph and isjong(has_attribute(n, unicodeattr)) then
-            color_on_off(head, curr, has_attribute(curr, colorjungattr), 2)
-            curr = n -- move to jongseong
-            color_on_off(head, curr, has_attribute(curr, colorjongattr), 3)
-          else
-            color_on_off(head, curr, has_attribute(curr, colorjungattr), 3)
+      if uni and isMV(uni) then
+        local LC, TC = curr.prev, curr.next
+        if LC and LC.id == glyph and isLC(has_attribute(LC, unicodeattr)) then
+          local trattr = has_attribute(LC, colorTRattr) or 0xFF
+          head, trattr = trans_on_off(head, LC, trattr)
+          head = color_on_off(head, LC,   colorLCattr, 1)
+          head = color_on_off(head, curr, colorMVattr, 0)
+          if TC and TC.id == glyph and isTC(has_attribute(TC, unicodeattr)) then
+            head = color_on_off(head, TC, colorTCattr, 0)
+            curr = TC
+          end
+          head, curr = color_on_off(head, curr)
+          if trattr then
+            head, curr = trans_on_off(head, curr)
           end
         end
       end
