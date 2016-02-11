@@ -1,7 +1,7 @@
 luatexbase.provides_module({
   name	= 'colorjamo',
-  date	= '2015/11/30',
-  version	= 0.1,
+  date	= '2016/02/01',
+  version	= 0.2,
   description	= 'Colorize Old Hangul Jamo',
   author	= 'Dohyun Kim',
   license	= 'Public Domain',
@@ -28,7 +28,6 @@ local has_attribute = node.has_attribute
 local insert_before = node.insert_before
 local insert_after  = node.insert_after
 local floor         = math.floor
-local addtocallback = luatexbase.add_to_callback
 
 local res_t, transstack
 local newcolorstack = pdf.newcolorstack
@@ -166,7 +165,6 @@ local function do_color_jamo (head, groupcode)
   return head
 end
 
-
 local function syllable_jamo (head)
   local curr, t = head, {}
   while curr do
@@ -194,6 +192,20 @@ local function syllable_jamo (head)
   return head
 end
 
-addtocallback("hpack_filter", syllable_jamo, "colorjamo.syllable_jamo", 1)
-addtocallback("pre_linebreak_filter", syllable_jamo, "colorjamo.syllable_jamo", 1)
-addtocallback("post_linebreak_filter", do_color_jamo, "colorjamo.do_colorjamo")
+local add_to_callback       = luatexbase.add_to_callback
+local callback_descriptions = luatexbase.callback_descriptions
+local remove_from_callback  = luatexbase.remove_from_callback
+
+local function pre_to_callback (name, func, desc)
+  local t = { {func, desc} }
+  for _,v in ipairs(callback_descriptions(name)) do
+    t[#t+1] = {remove_from_callback(name, v)}
+  end
+  for _,v in ipairs(t) do
+    add_to_callback(name, v[1], v[2])
+  end
+end
+
+pre_to_callback("hpack_filter",          syllable_jamo, "colorjamo")
+pre_to_callback("pre_linebreak_filter",  syllable_jamo, "colorjamo")
+add_to_callback("post_linebreak_filter", do_color_jamo, "colorjamo")

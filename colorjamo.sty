@@ -5,17 +5,17 @@
 
 \RequirePackage{luatexko}
 
-\newluatexattribute\colorjamoattr
-\newluatexattribute\colorjamochoattr
-\newluatexattribute\colorjamojungattr
-\newluatexattribute\colorjamojongattr
-\newluatexattribute\colorjamotransattr
+\newattribute\colorjamoattr
+\newattribute\colorjamochoattr
+\newattribute\colorjamojungattr
+\newattribute\colorjamojongattr
+\newattribute\colorjamotransattr
 
-\RequireLuaModule{colorjamo}
+\directlua{require "colorjamo"}
 
 \newenvironment{colorjamo}
   {\colorjamoattr\@ne}
-  {\unsetluatexattribute\colorjamoattr}
+  {\unsetattribute\colorjamoattr}
 
 \protected\def\jamocolorcho     #1{\colorjamochoattr   "#1\relax}
 \protected\def\jamocolorjung    #1{\colorjamojungattr  "#1\relax}
