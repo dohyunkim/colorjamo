@@ -2,10 +2,6 @@
 
 A LaTeX package for colorizing Hangul jamo characters
 
-## requirement
-
-You need to have `luatexko` package installed.
-
 ## usage
 
 ```

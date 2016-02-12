@@ -16,7 +16,7 @@ local colorLCattr   = attrs.colorjamochoattr
 local colorMVattr   = attrs.colorjamojungattr
 local colorTCattr   = attrs.colorjamojongattr
 local colorTRattr   = attrs.colorjamotransattr
-local unicodeattr   = attrs.luakounicodeattr or attrs.unicodeattr
+local unicodeattr   = luatexbase.new_attribute("colorjamounicodeattr")
 local glyph         = node.id("glyph")
 local hlist         = node.id("hlist")
 local vlist         = node.id("vlist")
@@ -25,6 +25,7 @@ local nodecopy      = node.copy
 local noderemove    = node.remove
 local nodefree      = node.free
 local has_attribute = node.has_attribute
+local set_attribute = node.set_attribute
 local insert_before = node.insert_before
 local insert_after  = node.insert_after
 local floor         = math.floor
@@ -170,20 +171,25 @@ local function syllable_jamo (head)
   while curr do
     if curr.id == glyph and has_attribute(curr, colorjamoattr) then
       local s = curr.char
-      if s and isSYL(s) then
-        s = s - 0xAC00
-        local LC = floor(s / 588) + 0x1100
-        local MV = floor(s % 588 / 28) + 0x1161
-        local TC = s % 28 + 0x11A7
-        for _, j in ipairs{LC, MV, TC} do
-          if j ~= 0x11A7 then
-            local jnode = nodecopy(curr)
-            jnode.char = j
-            head = insert_before(head, curr, jnode)
+      if s then
+        if isSYL(s) then
+          s = s - 0xAC00
+          local LC = floor(s / 588) + 0x1100
+          local MV = floor(s % 588 / 28) + 0x1161
+          local TC = s % 28 + 0x11A7
+          for _, j in ipairs{LC, MV, TC} do
+            if j ~= 0x11A7 then
+              local jnode = nodecopy(curr)
+              jnode.char = j
+              set_attribute(jnode, unicodeattr, j)
+              head = insert_before(head, curr, jnode)
+            end
           end
+          head = noderemove(head, curr)
+          t[#t+1] = curr
+        elseif isLC(s) or isMV(s) or isTC(s) then
+          set_attribute(curr, unicodeattr, curr.char)
         end
-        head = noderemove(head, curr)
-        t[#t+1] = curr
       end
     end
     curr = curr.next
