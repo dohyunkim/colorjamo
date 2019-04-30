@@ -16,10 +16,12 @@ local colorLCattr   = attrs.colorjamochoattr
 local colorMVattr   = attrs.colorjamojungattr
 local colorTCattr   = attrs.colorjamojongattr
 local colorTRattr   = attrs.colorjamotransattr
-local unicodeattr   = luatexbase.new_attribute("colorjamounicodeattr")
-local glyph         = node.id("glyph")
-local hlist         = node.id("hlist")
-local vlist         = node.id("vlist")
+local unicodeattr   = luatexbase.new_attribute"colorjamounicodeattr"
+local glyphid       = node.id"glyph"
+local hlistid       = node.id"hlist"
+local vlistid       = node.id"vlist"
+local kernid        = node.id"kern"
+local fontkern      = 0
 local nodenew       = node.new
 local nodecopy      = node.copy
 local noderemove    = node.remove
@@ -28,11 +30,10 @@ local has_attribute = node.has_attribute
 local set_attribute = node.set_attribute
 local insert_before = node.insert_before
 local insert_after  = node.insert_after
-local floor         = math.floor
 
 local res_t, transstack
 local newcolorstack = pdf.newcolorstack
-local atletter = luatexbase.registernumber("catcodetable@atletter")
+local atletter = luatexbase.registernumber"catcodetable@atletter"
 local sprintf, concat   = string.format, table.concat
 local gettoks, scantoks = tex.gettoks, tex.scantoks
 local getpageres = pdf.getpageresources or function() return pdf.pageresources end
@@ -109,18 +110,20 @@ end
 local function do_color_jamo (head, groupcode)
   local curr = head
   while curr do
-    if curr.id == hlist or curr.id == vlist then
+    if curr.id == hlistid or curr.id == vlistid then
       curr.head = do_color_jamo(curr.head)
-    elseif curr.id == glyph and has_attribute(curr, colorjamoattr) then
+    elseif curr.id == glyphid and has_attribute(curr, colorjamoattr) then
       local uni = has_attribute(curr, unicodeattr)
       if uni and isMV(uni) then
         local LC, TC = curr.prev, curr.next
-        if LC and LC.id == glyph and isLC(has_attribute(LC, unicodeattr)) then
+        if LC.id == kernid and LC.subtype == fontkern then LC = LC.prev end
+        if TC.id == kernid and TC.subtype == fontkern then TC = TC.next end
+        if LC and LC.id == glyphid and isLC(has_attribute(LC, unicodeattr)) then
           local trattr = has_attribute(LC, colorTRattr) or 0xFF
           head, trattr = trans_on_off(head, LC, trattr)
           head = color_on_off(head, LC,   colorLCattr, 1)
           head = color_on_off(head, curr, colorMVattr, 0)
-          if TC and TC.id == glyph and isTC(has_attribute(TC, unicodeattr)) then
+          if TC and TC.id == glyphid and isTC(has_attribute(TC, unicodeattr)) then
             head = color_on_off(head, TC, colorTCattr, 0)
             curr = TC
           end
@@ -169,13 +172,13 @@ end
 local function syllable_jamo (head)
   local curr, t = head, {}
   while curr do
-    if curr.id == glyph and has_attribute(curr, colorjamoattr) then
+    if curr.id == glyphid and has_attribute(curr, colorjamoattr) then
       local s = curr.char
       if s then
         if isSYL(s) then
           s = s - 0xAC00
-          local LC = floor(s / 588) + 0x1100
-          local MV = floor(s % 588 / 28) + 0x1161
+          local LC = s // 588 + 0x1100
+          local MV = s % 588 // 28 + 0x1161
           local TC = s % 28 + 0x11A7
           for _, j in ipairs{LC, MV, TC} do
             if j ~= 0x11A7 then
