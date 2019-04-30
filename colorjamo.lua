@@ -123,7 +123,7 @@ local function do_color_jamo (head, groupcode)
           head, trattr = trans_on_off(head, LC, trattr)
           head = color_on_off(head, LC,   colorLCattr, 1)
           head = color_on_off(head, curr, colorMVattr, 0)
-          if TC and TC.id == glyphid and isTC(has_attribute(TC, unicodeattr)) then
+          if TC and TC.id == glyphid and isTC(has_attribute(TC, unicodeattr) or 0) then
             head = color_on_off(head, TC, colorTCattr, 0)
             curr = TC
           end
