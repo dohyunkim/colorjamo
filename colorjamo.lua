@@ -1,220 +1,204 @@
-luatexbase.provides_module({
-  name	= 'colorjamo',
-  date	= '2016/02/01',
-  version	= 0.2,
-  description	= 'Colorize Old Hangul Jamo',
-  author	= 'Dohyun Kim',
-  license	= 'Public Domain',
-})
+luatexbase.provides_module{
+  name = 'colorjamo',
+  date = '2021/04/01',
+  version     = 0.3,
+  description = 'Colorize Old Hangul Jamo',
+  author      = 'Dohyun Kim',
+  license     = 'Public Domain',
+}
 
 colorjamo = colorjamo or {}
 local colorjamo = colorjamo
 
-local attrs         = luatexbase.attributes
-local colorjamoattr = attrs.colorjamoattr
-local colorLCattr   = attrs.colorjamochoattr
-local colorMVattr   = attrs.colorjamojungattr
-local colorTCattr   = attrs.colorjamojongattr
-local colorTRattr   = attrs.colorjamotransattr
-local unicodeattr   = luatexbase.new_attribute"colorjamounicodeattr"
-local glyphid       = node.id"glyph"
-local hlistid       = node.id"hlist"
-local vlistid       = node.id"vlist"
-local kernid        = node.id"kern"
-local fontkern      = 0
-local nodenew       = node.new
-local nodecopy      = node.copy
-local noderemove    = node.remove
-local nodefree      = node.free
-local has_attribute = node.has_attribute
-local set_attribute = node.set_attribute
-local insert_before = node.insert_before
-local insert_after  = node.insert_after
-
-local res_t, transstack
-local newcolorstack = pdf.newcolorstack
-local atletter = luatexbase.registernumber"catcodetable@atletter"
-local sprintf, concat   = string.format, table.concat
-local gettoks, scantoks = tex.gettoks, tex.scantoks
-local getpageres = pdf.getpageresources or function() return pdf.pageresources end
-local setpageres = pdf.setpageresources or function(s) pdf.pageresources = s end
-local pgf = { bye = "pgfutil@everybye", extgs = "\\pgf@sys@addpdfresource@extgs@plain" }
-
-local function isLC (c)
-  return ( c >= 0x1100 and c <= 0x115F )
-  or     ( c >= 0xA960 and c <= 0xA97C )
+local function is_syllable (c)
+  return c >= 0xAC00 and c <= 0xD7A3
 end
 
-local function isMV (c)
-  return ( c >= 0x1160 and c <= 0x11A7 )
-  or     ( c >= 0xD7B0 and c <= 0xD7C6 )
+local function is_cho (c)
+  return c >= 0x1100 and c <  0x115F
+  or     c >= 0xA960 and c <= 0xA97C
+  or     c >= 0x3131 and c <= 0x314E
+  or     c >= 0x3165 and c <= 0x3186
 end
 
-local function isTC (c)
-  return ( c >= 0x11A8 and c <= 0x11FF )
-  or     ( c >= 0xD7CB and c <= 0xD7FB )
+local function is_jung (c)
+  return c >  0x1160 and c <= 0x11A7
+  or     c >= 0xD7B0 and c <= 0xD7C6
+  or     c >= 0x314F and c <= 0x3163
+  or     c >= 0x3187 and c <= 0x318E
 end
 
-local function isSYL (c)
-  return ( c >= 0xAC00 and c <= 0xD7A3 )
+local function is_jong (c)
+  return c >= 0x11A8 and c <= 0x11FF
+  or     c >= 0xD7CB and c <= 0xD7FB
 end
 
-local function get_trans_node (data)
-  local tr_node
-  data = data and sprintf("/TransGs%s gs", data)
-  if transstack then
-    tr_node         = nodenew("whatsit","pdf_colorstack")
-    tr_node.stack   = transstack
-    tr_node.command = data and 1 or 2
-    tr_node.data    = data or nil
-  else
-    tr_node         = nodenew("whatsit","pdf_literal")
-    tr_node.mode    = 2
-    tr_node.data    = data or "/TransGs1 gs"
+local SBase = 0xAC00
+local LBase = 0x1100
+local VBase = 0x1161
+local TBase = 0x11A7
+local VCount = 21
+local TCount = 28
+local NCount = VCount * TCount
+
+local function syllable2jamo (c)
+  local SIndex = c - SBase
+  local L = SIndex // NCount + LBase
+  local V = SIndex % NCount // TCount + VBase
+  local T = SIndex % TCount + TBase
+  if T == TBase then
+    T = nil
   end
-  return tr_node
+  return { L, V, T }
 end
 
-local function trans_on_off (head, curr, trans)
-  if not trans then
-    return insert_after(head, curr, get_trans_node())
-  elseif trans == 0xFF then
-    return head
-  end
-  if newcolorstack and not transstack then
-    transstack = newcolorstack("/TransGs1 gs","direct",true)
-  end
-  trans = sprintf("%.3g", trans / 0xFF)
-  res_t = res_t or { }
-  res_t[trans] = true
-  head = insert_before(head, curr, get_trans_node(trans))
-  return head, trans
-end
+--
+-- colors
+--
+local my_color_ids = {}
 
-local function color_on_off (head, curr, color, command)
-  local clr_node   = nodenew("whatsit","pdf_colorstack")
-  clr_node.stack   = 0
-  clr_node.command = command or 2
-  if not command then
-    return insert_after(head, curr, clr_node)
-  end
-  color = has_attribute(curr, color) or 0
-  local t = {}
-  for s in sprintf("%06x",color):gmatch("%x%x") do
-    t[#t+1] = sprintf("%.3g", tonumber(s, 16) / 0xFF)
-  end
-  clr_node.data = sprintf("%s %s %s rg", t[1], t[2], t[3])
-  return insert_before(head, curr, clr_node)
-end
+local luacolorid   = oberdiek.luacolor.getvalue
 
-local function do_color_jamo (head, groupcode)
+local function getluacolorid (str)
+  str = str:gsub("%x%x", function(h)
+     return string.format("%.3g ", tonumber(h, 16)/255)
+  end)
+  local id = luacolorid(str.."rg")
+  my_color_ids[id] = true
+  tex.sprint(tostring(id))
+end
+colorjamo.getluacolorid = getluacolorid
+
+local glyph   = node.id"glyph"
+local cpnode  = node.copy
+local getnext = node.getnext
+local setattr = node.set_attribute
+local hasattr = node.has_attribute
+local insertafter = node.insert_after
+
+local colorchoattr  = luatexbase.attributes.colorchoattr
+local colorjungattr = luatexbase.attributes.colorjungattr
+local colorjongattr = luatexbase.attributes.colorjongattr
+
+local luacolorattr  = oberdiek.luacolor.getattribute()
+
+local function process_color (head)
   local curr = head
   while curr do
-    if curr.id == hlistid or curr.id == vlistid then
-      curr.head = do_color_jamo(curr.head)
-    elseif curr.id == glyphid and has_attribute(curr, colorjamoattr) then
-      local uni = has_attribute(curr, unicodeattr)
-      if uni and isMV(uni) then
-        local LC, TC = curr.prev, curr.next
-        if LC.id == kernid and LC.subtype == fontkern then LC = LC.prev end
-        if TC.id == kernid and TC.subtype == fontkern then TC = TC.next end
-        if LC and LC.id == glyphid and isLC(has_attribute(LC, unicodeattr)) then
-          local trattr = has_attribute(LC, colorTRattr) or 0xFF
-          head, trattr = trans_on_off(head, LC, trattr)
-          head = color_on_off(head, LC,   colorLCattr, 1)
-          head = color_on_off(head, curr, colorMVattr, 0)
-          if TC and TC.id == glyphid and isTC(has_attribute(TC, unicodeattr) or 0) then
-            head = color_on_off(head, TC, colorTCattr, 0)
-            curr = TC
-          end
-          head, curr = color_on_off(head, curr)
-          if trattr then
-            head, curr = trans_on_off(head, curr)
-          end
-        end
-      end
-    end
-    curr = curr.next
-  end
-
-  -- >> transparency
-  if res_t and groupcode then
-    res_t["1"] = true
-    if scantoks and pgf.bye and not pgf.loaded then
-      pgf.loaded = token.create(pgf.bye).cmdname == "assign_toks"
-      pgf.bye    = pgf.loaded and pgf.bye
-    end
-    local tpr = pgf.loaded and gettoks(pgf.bye) or getpageres() or ""
-    local t = { }
-    for k in pairs(res_t) do
-      local str = sprintf("/TransGs%s<</ca %s>>", k, k)
-      if not tpr:find(str) then
-        t[#t+1] = str
-      end
-    end
-    if #t > 0 then
-      t = concat(t)
-      if pgf.loaded then
-        scantoks("global", pgf.bye, atletter, sprintf("%s{%s}%s", pgf.extgs, t, tpr))
-      else
-        local tpr, n = tpr:gsub("/ExtGState<<", "%1"..t)
-        if n == 0 then tpr = sprintf("%s/ExtGState<<%s>>", tpr, t) end
-        setpageres(tpr)
-      end
-    end
-    res_t = nil -- reset
-  end
-  -- << transparency
-
-  return head
-end
-
-local function syllable_jamo (head)
-  local curr, t = head, {}
-  while curr do
-    if curr.id == glyphid and has_attribute(curr, colorjamoattr) then
-      local s = curr.char
-      if s then
-        if isSYL(s) then
-          s = s - 0xAC00
-          local LC = s // 588 + 0x1100
-          local MV = s % 588 // 28 + 0x1161
-          local TC = s % 28 + 0x11A7
-          for _, j in ipairs{LC, MV, TC} do
-            if j ~= 0x11A7 then
-              local jnode = nodecopy(curr)
-              jnode.char = j
-              set_attribute(jnode, unicodeattr, j)
-              head = insert_before(head, curr, jnode)
+    if curr.id == glyph then
+      local c = curr.char
+      if is_syllable(c) then
+        local t = {
+          hasattr(curr, colorchoattr),
+          hasattr(curr, colorjungattr),
+          hasattr(curr, colorjongattr),
+        }
+        if t[1] and t[2] and t[3] then
+          for i, j in ipairs(syllable2jamo(c)) do
+            if i ~= 1 then
+              head, curr = insertafter(head, curr, cpnode(curr))
             end
+            curr.char = j
+            setattr(curr, luacolorattr, t[i])
           end
-          head = noderemove(head, curr)
-          t[#t+1] = curr
-        elseif isLC(s) or isMV(s) or isTC(s) then
-          set_attribute(curr, unicodeattr, curr.char)
+        end
+      elseif is_cho (c) then
+        local attr = hasattr(curr, colorchoattr)
+        if attr then
+          setattr(curr, luacolorattr, attr)
+        end
+      elseif is_jung(c) then
+        local attr = hasattr(curr, colorjungattr)
+        if attr then
+          setattr(curr, luacolorattr, attr)
+        end
+      elseif is_jong(c) then
+        local attr = hasattr(curr, colorjongattr)
+        if attr then
+          setattr(curr, luacolorattr, attr)
         end
       end
     end
-    curr = curr.next
+    curr = getnext(curr)
   end
-  for _, v in ipairs(t) do nodefree(v) end
-  return head
+  return true
 end
 
-local add_to_callback       = luatexbase.add_to_callback
-local callback_descriptions = luatexbase.callback_descriptions
-local remove_from_callback  = luatexbase.remove_from_callback
+luatexbase.add_to_callback("pre_shaping_filter", process_color, "colorjamo_color")
 
-local function pre_to_callback (name, func, desc)
-  local t = { {func, desc} }
-  for _,v in ipairs(callback_descriptions(name)) do
-    t[#t+1] = {remove_from_callback(name, v)}
+--
+-- opacity
+--
+local opacities = { }
+
+local function getopacityid(str)
+  str = "/TRP"..str.." gs"
+  local id = opacities[str]
+  if not id then
+    id = #opacities + 1
+    opacities[id] = str
+    opacities[str] = id
   end
-  for _,v in ipairs(t) do
-    add_to_callback(name, v[1], v[2])
-  end
+  tex.sprint(tostring(id))
+end
+colorjamo.getopacityid = getopacityid
+
+local opacityjamoattr = luatexbase.attributes.opacityjamoattr
+
+local penalty = node.id"penalty"
+local kern    = node.id"kern"
+local glue    = node.id"glue"
+local rule    = node.id"rule"
+local leaders = 100 -- or more
+local SETcmd  = 0   -- colorstack command 0 = set, 1 = push, 2 = pop
+local insertbefore = node.insert_before
+
+local function get_colorstack (id, cmd)
+  local n = node.new("whatsit", "pdf_colorstack")
+  n.stack = colorjamo.TRPcolorstack
+  n.command = cmd or (id and 1) or 2
+  n.data = id and opacities[id] or nil
+  return n
 end
 
-pre_to_callback("hpack_filter",          syllable_jamo, "colorjamo")
-pre_to_callback("pre_linebreak_filter",  syllable_jamo, "colorjamo")
-add_to_callback("post_linebreak_filter", do_color_jamo, "colorjamo")
+local function process_opacity (head, opaque)
+  local curr = head
+  while curr do
+    if curr.list then
+      curr.list, opaque = process_opacity(curr.list, opaque)
+    elseif curr.leader and curr.leader.id ~= rule then
+      curr.leader.list, opaque = process_opacity(curr.leader.list, opaque)
+    else
+      local id = curr.id
+      if opaque then
+        if id == penalty  then
+        elseif id == kern then
+        elseif id == glue and curr.subtype < leaders then
+        elseif id == glyph and my_color_ids[ hasattr(curr, luacolorattr) ] then
+          local attr = hasattr(curr, opacityjamoattr)
+          if not attr then
+            head = insertbefore(head, curr, get_colorstack())
+            opaque = nil
+          elseif attr ~= opaque then
+            head = insertbefore(head, curr, get_colorstack(attr, SETcmd))
+            opaque = attr
+          end
+        else
+          head = insertbefore(head, curr, get_colorstack())
+          opaque = nil
+        end
+      elseif id == glyph and my_color_ids[ hasattr(curr, luacolorattr) ] then
+        local attr = hasattr(curr, opacityjamoattr)
+        if attr then
+          head = insertbefore(head, curr, get_colorstack(attr))
+          opaque = attr
+        end
+      end
+    end
+    curr = getnext(curr)
+  end
+  return head, opaque
+end
+colorjamo.process_opacity = process_opacity
+
+

@@ -1,29 +1,104 @@
 % written by Dohyun Kim
 % Public Domain
 
-\ProvidesPackage{colorjamo}[2016/02/01 v0.2 Color Old Hangul Jamo]
+\NeedsTeXFormat{LaTeX2e}[2020/10/01]
+\ProvidesPackage{colorjamo}[2021/04/01 v0.3 Color Old Hangul Jamo]
 
-\newattribute\colorjamoattr
-\newattribute\colorjamochoattr
-\newattribute\colorjamojungattr
-\newattribute\colorjamojongattr
-\newattribute\colorjamotransattr
+\RequirePackage{luacolor}
+\RequirePackage{transparent}
 
-\directlua{require "colorjamo"}
+\newattribute\colorchoattr
+\newattribute\colorjungattr
+\newattribute\colorjongattr
+\newattribute\opacityjamoattr
 
-\newenvironment{colorjamo}
-  {\colorjamoattr\@ne}
-  {\unsetattribute\colorjamoattr}
+\directlua{ require "colorjamo" }
 
-\protected\def\jamocolorcho     #1{\colorjamochoattr   "#1\relax}
-\protected\def\jamocolorjung    #1{\colorjamojungattr  "#1\relax}
-\protected\def\jamocolorjong    #1{\colorjamojongattr  "#1\relax}
-\protected\def\jamotransparency #1{\colorjamotransattr "#1\relax}
+\ifdefined\TRP@colorstack % transparent package
+  \directlua{ colorjamo.TRPcolorstack = \TRP@colorstack }
+  \let\colorjamo@transparent@use\transparent@use
+  \def\colorjamo@transparent#1{%
+    \ifx\transparent@use\colorjamo@transparent@use
+      \transparent@use{#1}%
+      \colorjamo@setopacity{#1}%
+    \else
+      \if@filesw
+        \immediate\write\@auxout{\string\transparent@use{#1}}%
+      \fi
+      \def\transparent@current{#1}%
+      \@ifundefined{TRP\transparent@current}%
+                   {\global\TRP@reruntrue}%
+                   {\colorjamo@setopacity{#1}}%
+    \fi
+  }
+\else % l3pdfmanagement
+  \ExplSyntaxOn
+  \directlua{ colorjamo.TRPcolorstack = \int_use:N \c__opacity_backend_stack_int }
+  \cs_new_nopar:Npn \colorjamo@transparent #1
+  {
+    \pdfmanagement_add:nnn { Page/Resources/ExtGState }
+                           { TRP #1 }
+                           { << /ca ~ #1 /CA ~ #1 >> }
+    \colorjamo@setopacity { #1 }
+  }
+  \ExplSyntaxOff
+\fi
+
+% colorjamo environment
+\newif\if@in@colorjamo
+\chardef\jamoopacityid\z@
+\protected\def\colorjamo{%
+  \@in@colorjamotrue
+  \colorchoattr   \colorchoid
+  \colorjungattr  \colorjungid
+  \colorjongattr  \colorjongid
+  \ifnum\jamoopacityid>\z@
+    \opacityjamoattr\jamoopacityid
+  \fi
+}
+
+% set colors
+\protected\def\jamocolorcho #1{%
+  \chardef\colorchoid \directlua{ colorjamo.getluacolorid("#1") }\relax
+}
+\protected\def\jamocolorjung#1{%
+  \chardef\colorjungid\directlua{ colorjamo.getluacolorid("#1") }\relax
+}
+\protected\def\jamocolorjong#1{%
+  \chardef\colorjongid\directlua{ colorjamo.getluacolorid("#1") }\relax
+}
+% set opacity
+\protected\def\jamotransparency#1{%
+  \edef\@tempa{%
+    \directlua{
+      local str = string.format("\csstring\%.3g", tonumber("#1", 16)/255):gsub("^0*","")
+      tex.sprint( str )
+    }}%
+  \def\@tempb{1}%
+  \ifx\@tempa\@tempb
+    \chardef\jamoopacityid\z@
+  \else
+    \expandafter\colorjamo@transparent\expandafter{\@tempa}%
+  \fi
+}
+\let\jamoopacity\jamotransparency
+\def\colorjamo@setopacity#1{%
+  \chardef\jamoopacityid\directlua{ colorjamo.getopacityid "#1" }\relax
+  \if@in@colorjamo
+    \opacityjamoattr\jamoopacityid
+  \fi
+}
+
+% insert opacity stack nodes
+\AddToHook{shipout/before}{%
+  \directlua{ colorjamo.process_opacity( tex.getbox(\the\ShipoutBox) ) }%
+}
+\DeclareHookRule{shipout/before}{.}{before}{luacolor}
 
 % default values
 \jamocolorcho {FF0000} % red
 \jamocolorjung{00FF00} % green
 \jamocolorjong{0000FF} % blue
-\jamotransparency {AA} % FF: full opaque, 00: full transparency
+\jamotransparency {BB} % FF: full opacity, 00: full transparency
 
 \endinput
