@@ -60,12 +60,21 @@
 % set colors
 \protected\def\jamocolorcho #1{%
   \chardef\colorchoid \directlua{ colorjamo.getluacolorid("#1") }\relax
+  \if@in@colorjamo
+    \colorchoattr\colorchoid
+  \fi
 }
 \protected\def\jamocolorjung#1{%
   \chardef\colorjungid\directlua{ colorjamo.getluacolorid("#1") }\relax
+  \if@in@colorjamo
+    \colorjungattr\colorjungid
+  \fi
 }
 \protected\def\jamocolorjong#1{%
   \chardef\colorjongid\directlua{ colorjamo.getluacolorid("#1") }\relax
+  \if@in@colorjamo
+    \colorjongattr\colorjongid
+  \fi
 }
 % set opacity
 \protected\def\jamotransparency#1{%
