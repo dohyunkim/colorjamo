@@ -13,10 +13,23 @@ A LaTeX package for colorizing Hangul jamo characters
 ```
 
 * HarfBuzz 모드에서는 잘 작동하지 않는다.
-* HCR Batang/Dotum LVT 폰트는 `Ligatures=RequiredOff` 옵션을 주어야 한다.
-* KoPubWorld Batang/Dotum 폰트는 `RawFeature=-ccmp` 옵션을 주어야 한다.
-* Nanum Myeongjo/BarunGothic Yethangul 폰트도 `RawFeature=-ccmp` 옵션을 주어야 한다.
-* 폰트에 따라서는 잘 작동하지 않는 폰트들이 있다. 가령 Noto Serif/Sans CJK.
+* `Script=Hangul` 옵션만으로 잘 작동하는 폰트:
+	* UnBatang
+	* Malgun Gothic
+	* HCR Dotum
+	* HCR Batang _Bold_
+	* Hancom Hoonminjeongeum&#95;V
+* `Script=Hangul`과 `Ligatures=RequiredOff` 옵션을 주어야 하는 폰트:
+	* HCR Batang LVT
+	* HCR Dotum LVT
+	* HCR Batang _Regular_
+* `Script=Hangul`과 `RawFeature=-ccmp` 옵션을 주어야 하는 폰트:
+	* Noto Serif CJK KR
+	* Noto Sans CJK KR
+	* KoPubWorldBatang
+	* KoPubWorldDotum
+	* NanumMyeongjo YetHangul
+	* NanumBarunGothic YetHangul
 
 ## options
 ```

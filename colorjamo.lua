@@ -15,14 +15,14 @@ local function is_syllable (c)
 end
 
 local function is_cho (c)
-  return c >= 0x1100 and c <  0x115F
+  return c >= 0x1100 and c <= 0x115F
   or     c >= 0xA960 and c <= 0xA97C
   or     c >= 0x3131 and c <= 0x314E
   or     c >= 0x3165 and c <= 0x3186
 end
 
 local function is_jung (c)
-  return c >  0x1160 and c <= 0x11A7
+  return c >= 0x1160 and c <= 0x11A7
   or     c >= 0xD7B0 and c <= 0xD7C6
   or     c >= 0x314F and c <= 0x3163
   or     c >= 0x3187 and c <= 0x318E
@@ -55,16 +55,13 @@ end
 --
 -- colors
 --
-local my_color_ids = {}
-
 local luacolorid   = oberdiek.luacolor.getvalue
 
 local function getluacolorid (str)
   str = str:gsub("%x%x", function(h)
-     return string.format("%.3g ", tonumber(h, 16)/255)
+    return string.format("%.3g ", tonumber(h, 16)/255)
   end)
   local id = luacolorid(str.."rg")
-  my_color_ids[id] = true
   tex.sprint(tostring(id))
 end
 colorjamo.getluacolorid = getluacolorid
@@ -74,7 +71,10 @@ local cpnode  = node.copy
 local getnext = node.getnext
 local setattr = node.set_attribute
 local hasattr = node.has_attribute
+local unsetattr = node.unset_attribute
 local insertafter = node.insert_after
+
+local opacityjamoattr = luatexbase.attributes.opacityjamoattr
 
 local colorchoattr  = luatexbase.attributes.colorchoattr
 local colorjungattr = luatexbase.attributes.colorjungattr
@@ -117,6 +117,8 @@ local function process_color (head)
         if attr then
           setattr(curr, luacolorattr, attr)
         end
+      elseif hasattr(curr, opacityjamoattr) then
+        unsetattr(curr, opacityjamoattr)
       end
     end
     curr = getnext(curr)
@@ -143,14 +145,13 @@ local function getopacityid(str)
 end
 colorjamo.getopacityid = getopacityid
 
-local opacityjamoattr = luatexbase.attributes.opacityjamoattr
-
 local penalty = node.id"penalty"
 local kern    = node.id"kern"
 local glue    = node.id"glue"
 local rule    = node.id"rule"
 local leaders = 100 -- or more
 local SETcmd  = 0   -- colorstack command 0 = set, 1 = push, 2 = pop
+local localpar = node.id"local_par"
 local insertbefore = node.insert_before
 
 local function get_colorstack (id, cmd)
@@ -174,7 +175,8 @@ local function process_opacity (head, opaque)
         if id == penalty  then
         elseif id == kern then
         elseif id == glue and curr.subtype < leaders then
-        elseif id == glyph and my_color_ids[ hasattr(curr, luacolorattr) ] then
+        elseif id == localpar then
+        elseif id == glyph then
           local attr = hasattr(curr, opacityjamoattr)
           if not attr then
             head = insertbefore(head, curr, get_colorstack())
@@ -187,7 +189,7 @@ local function process_opacity (head, opaque)
           head = insertbefore(head, curr, get_colorstack())
           opaque = nil
         end
-      elseif id == glyph and my_color_ids[ hasattr(curr, luacolorattr) ] then
+      elseif id == glyph then
         local attr = hasattr(curr, opacityjamoattr)
         if attr then
           head = insertbefore(head, curr, get_colorstack(attr))

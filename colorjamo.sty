@@ -80,8 +80,7 @@
 \protected\def\jamotransparency#1{%
   \edef\@tempa{%
     \directlua{
-      local str = string.format("\csstring\%.3g", tonumber("#1", 16)/255):gsub("^0*","")
-      tex.sprint( str )
+      tex.sprint( (string.format("\csstring\%.3g", tonumber("#1",16)/255):gsub("^0*","")) )
     }}%
   \def\@tempb{1}%
   \ifx\@tempa\@tempb
@@ -103,6 +102,14 @@
   \directlua{ colorjamo.process_opacity( tex.getbox(\the\ShipoutBox) ) }%
 }
 \DeclareHookRule{shipout/before}{.}{before}{luacolor}
+
+% reset on normalfont esp. output routine
+\AddToHook{normalfont}{%
+  \unsetattribute\colorchoattr
+  \unsetattribute\colorjungattr
+  \unsetattribute\colorjongattr
+  \unsetattribute\opacityjamoattr
+}
 
 % default values
 \jamocolorcho {FF0000} % red
