@@ -5,7 +5,16 @@
 \ProvidesPackage{colorjamo}[2021/04/01 v0.3 Color Old Hangul Jamo]
 
 \RequirePackage{luacolor}
-\RequirePackage{transparent}
+
+\ExplSyntaxOn
+\cs_if_exist:NTF \pdfmanagement_if_active:TF
+{
+  \pdfmanagement_if_active:TF { } { \RequirePackage{transparent} }
+}
+{
+  \RequirePackage{transparent}
+}
+\ExplSyntaxOff
 
 \newattribute\colorchoattr
 \newattribute\colorjungattr

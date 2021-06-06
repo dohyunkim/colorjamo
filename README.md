@@ -4,13 +4,11 @@ A LaTeX package for colorizing Hangul jamo characters
 
 ## usage
 
-```
-\usepackage{colorjamo}
-...
-\begin{colorjamo}
-한글...
-\end{colorjamo}
-```
+	\usepackage{colorjamo}
+	...
+	\begin{colorjamo}
+	한글...
+	\end{colorjamo}
 
 * HarfBuzz 모드에서는 잘 작동하지 않는다.
 * `Script=Hangul` 옵션만으로 잘 작동하는 폰트:
@@ -32,12 +30,10 @@ A LaTeX package for colorizing Hangul jamo characters
 	* NanumBarunGothic YetHangul
 
 ## options
-```
-\jamocolorcho {FF0000} % color of leading consonants. default is red.
-\jamocolorjung{00FF00} % color of medial vowels. default is green.
-\jamocolorjong{0000FF} % color of final consonants. default is blue.
-\jamotransparency {BB} % FF: full opacity, 00: full transparency
-```
+	\jamocolorcho {FF0000} % color of leading consonants. default is red.
+	\jamocolorjung{00FF00} % color of medial vowels. default is green.
+	\jamocolorjong{0000FF} % color of final consonants. default is blue.
+	\jamotransparency {BB} % FF: full opacity, 00: full transparency
 
 ## license
 
