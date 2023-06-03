@@ -28,6 +28,7 @@ A LaTeX package for colorizing Hangul jamo characters
 	* KoPubWorldDotum
 	* NanumMyeongjo YetHangul
 	* NanumBarunGothic YetHangul
+* luaotfload v3.19 이후부터 모든 폰트에 `RawFeature=-normalize` 옵션도 함께 지시해야 한다.
 
 ## options
 	\jamocolorcho {FF0000} % color of leading consonants. default is red.
