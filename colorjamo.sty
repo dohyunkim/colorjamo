@@ -89,7 +89,7 @@
 \protected\def\jamotransparency#1{%
   \edef\@tempa{%
     \directlua{
-      tex.sprint( (string.format("\csstring\%.3g", tonumber("#1",16)/255):gsub("^0*","")) )
+      tex.sprint( (string.format("\csstring\%.3g", tonumber("#1",16)/255):gsub("^0*\csstring\%.",".")) )
     }}%
   \def\@tempb{1}%
   \ifx\@tempa\@tempb
