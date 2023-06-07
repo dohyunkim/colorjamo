@@ -57,9 +57,17 @@ end
 --
 local luacolorid   = oberdiek.luacolor.getvalue
 
+local format = string.format
+
 local function getluacolorid (str)
+  local length = str:len()
+  if length > 6 or length < 1 then
+    error(format("'%s' is not a valid expression!", str))
+  elseif length < 6 then
+    str = format("%06x", tonumber(str,16))
+  end
   str = str:gsub("%x%x", function(h)
-    return string.format("%.3g ", tonumber(h, 16)/255)
+    return format("%.3g ", tonumber(h, 16)/255)
   end)
   local id = luacolorid(str.."rg")
   tex.sprint(tostring(id))
