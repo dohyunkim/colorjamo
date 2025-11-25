@@ -5,7 +5,6 @@
 \ProvidesPackage{colorjamo}[2021/04/01 v0.3 Color Old Hangul Jamo]
 
 \RequirePackage{luacolor}
-
 \ExplSyntaxOn
 \cs_if_exist:NTF \pdfmanagement_if_active:TF
 {
@@ -68,29 +67,26 @@
 
 % set colors
 \protected\def\jamocolorcho #1{%
-  \chardef\colorchoid \directlua{ colorjamo.getluacolorid("#1") }\relax
+  \chardef\colorchoid\getluacolorid{#1}\relax
   \if@in@colorjamo
     \colorchoattr\colorchoid
   \fi
 }
 \protected\def\jamocolorjung#1{%
-  \chardef\colorjungid\directlua{ colorjamo.getluacolorid("#1") }\relax
+  \chardef\colorjungid\getluacolorid{#1}\relax
   \if@in@colorjamo
     \colorjungattr\colorjungid
   \fi
 }
 \protected\def\jamocolorjong#1{%
-  \chardef\colorjongid\directlua{ colorjamo.getluacolorid("#1") }\relax
+  \chardef\colorjongid\getluacolorid{#1}\relax
   \if@in@colorjamo
     \colorjongattr\colorjongid
   \fi
 }
 % set opacity
 \protected\def\jamotransparency#1{%
-  \edef\@tempa{%
-    \directlua{
-      tex.sprint( (string.format("\csstring\%.3g", tonumber("#1",16)/255):gsub("^0*\csstring\%.",".")) )
-    }}%
+  \edef\@tempa{\getjamotransparency{#1}}%
   \def\@tempb{1}%
   \ifx\@tempa\@tempb
     \chardef\jamoopacityid\z@
@@ -100,17 +96,11 @@
 }
 \let\jamoopacity\jamotransparency
 \def\colorjamo@setopacity#1{%
-  \chardef\jamoopacityid\directlua{ colorjamo.getopacityid "#1" }\relax
+  \chardef\jamoopacityid\getopacityid{#1}\relax
   \if@in@colorjamo
     \opacityjamoattr\jamoopacityid
   \fi
 }
-
-% insert opacity stack nodes
-\AddToHook{shipout/before}{%
-  \directlua{ colorjamo.process_opacity( tex.getbox(\the\ShipoutBox) ) }%
-}
-\DeclareHookRule{shipout/before}{.}{before}{luacolor}
 
 % reset on normalfont esp. output routine
 \AddToHook{normalfont}{%

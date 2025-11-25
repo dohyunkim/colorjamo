@@ -57,22 +57,16 @@ end
 --
 local luacolorid   = oberdiek.luacolor.getvalue
 
-local format = string.format
-
-local function getluacolorid (str)
-  local length = str:len()
-  if length > 6 or length < 1 then
-    error(format("'%s' is not a valid expression!", str))
-  elseif length < 6 then
-    str = format("%06x", tonumber(str,16))
-  end
+local getcolorid_index = luatexbase.new_luafunction"colorjamo_getcolorid_func"
+lua.get_functions_table()[getcolorid_index] = function ()
+  local str = token.scan_argument()
   str = str:gsub("%x%x", function(h)
-    return format("%.3g ", tonumber(h, 16)/255)
+    return ("%.3g "):format(tonumber(h, 16)/255)
   end)
   local id = luacolorid(str.."rg")
-  tex.sprint(tostring(id))
+  tex.sprint(id)
 end
-colorjamo.getluacolorid = getluacolorid
+token.set_lua("getluacolorid", getcolorid_index, "global")
 
 local glyph   = node.id"glyph"
 local cpnode  = node.copy
@@ -141,7 +135,9 @@ luatexbase.add_to_callback("pre_shaping_filter", process_color, "colorjamo_color
 --
 local opacities = { }
 
-local function getopacityid(str)
+local getopacityid_index = luatexbase.new_luafunction"colorjamo_getopacityid_func"
+lua.get_functions_table()[getopacityid_index] = function ()
+  local str = token.scan_argument()
   str = "/TRP"..str.." gs"
   local id = opacities[str]
   if not id then
@@ -151,7 +147,15 @@ local function getopacityid(str)
   end
   tex.sprint(tostring(id))
 end
-colorjamo.getopacityid = getopacityid
+token.set_lua("getopacityid", getopacityid_index, "global")
+
+local gettransparency_index = luatexbase.new_luafunction"colorjamo_gettransparency_func"
+lua.get_functions_table()[gettransparency_index] = function ()
+  local num = token.scan_argument()
+  num = ("%.3g"):format(tonumber(num,16)/255):gsub("^0*%.",".")
+  tex.sprint(num)
+end
+token.set_lua("getjamotransparency", gettransparency_index, "global")
 
 local penalty = node.id"penalty"
 local kern    = node.id"kern"
@@ -209,6 +213,7 @@ local function process_opacity (head, opaque)
   end
   return head, opaque
 end
-colorjamo.process_opacity = process_opacity
 
+luatexbase.declare_callback_rule("pre_shipout_filter", "colorjamo_opacity", "before", "luacolor.process")
+luatexbase.add_to_callback("pre_shipout_filter", process_opacity, "colorjamo_opacity")
 
