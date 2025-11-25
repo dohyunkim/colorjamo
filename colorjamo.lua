@@ -135,6 +135,11 @@ luatexbase.add_to_callback("pre_shaping_filter", process_color, "colorjamo_color
 --
 local opacities = { }
 
+local TRPcolorstack = token.get_macro"TRP@colorstack"
+if not TRPcolorstack or TRPcolorstack == "" then
+  TRPcolorstack = token.create"c__opacity_backend_stack_int".mode
+end
+
 local getopacityid_index = luatexbase.new_luafunction"colorjamo_getopacityid_func"
 lua.get_functions_table()[getopacityid_index] = function ()
   local str = token.scan_argument()
@@ -168,7 +173,7 @@ local insertbefore = node.insert_before
 
 local function get_colorstack (id, cmd)
   local n = node.new("whatsit", "pdf_colorstack")
-  n.stack = colorjamo.TRPcolorstack
+  n.stack = TRPcolorstack
   n.command = cmd or (id and 1) or 2
   n.data = id and opacities[id] or nil
   return n

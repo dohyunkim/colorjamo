@@ -23,7 +23,6 @@
 \directlua{ require "colorjamo" }
 
 \ifdefined\TRP@colorstack % transparent package
-  \directlua{ colorjamo.TRPcolorstack = \TRP@colorstack }
   \let\colorjamo@transparent@use\transparent@use
   \def\colorjamo@transparent#1{%
     \ifx\transparent@use\colorjamo@transparent@use
@@ -41,7 +40,6 @@
   }
 \else % l3pdfmanagement
   \ExplSyntaxOn
-  \directlua{ colorjamo.TRPcolorstack = \int_use:N \c__opacity_backend_stack_int }
   \cs_new_nopar:Npn \colorjamo@transparent #1
   {
     \pdfmanagement_add:nnn { Page/Resources/ExtGState }
