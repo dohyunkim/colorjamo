@@ -177,13 +177,11 @@ local function get_colorstack (id, cmd)
   return n
 end
 
-local function process_opacity (head, opaque)
+local function process_opacity (head, opaque, inner)
   local curr = head
   while curr do
     if curr.list then
-      curr.list, opaque = process_opacity(curr.list, opaque)
---    elseif curr.leader and curr.leader.list then
---      curr.leader.list, opaque = process_opacity(curr.leader.list, opaque)
+      curr.list, opaque = process_opacity(curr.list, opaque, true)
     else
       local id = curr.id
       if opaque then
@@ -191,7 +189,7 @@ local function process_opacity (head, opaque)
         elseif id == kern then
         elseif id == glue and not curr.leader then
         elseif id == localpar then
-        elseif id == hlist and curr.subtype == 3 then -- skip indent box
+        elseif id == hlist then
         elseif id == glyph then
           local attr = hasattr(curr, opacityjamoattr)
           if not attr then
@@ -214,6 +212,9 @@ local function process_opacity (head, opaque)
       end
     end
     curr = getnext(curr)
+  end
+  if opaque and not inner then
+    insertafter(head, node.tail(head), get_colorstack())
   end
   return head, opaque
 end
