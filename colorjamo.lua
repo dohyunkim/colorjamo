@@ -1,7 +1,7 @@
 luatexbase.provides_module{
   name = 'colorjamo',
-  date = '2021/04/01',
-  version     = 0.3,
+  date = '2025/11/25',
+  version     = 0.4,
   description = 'Colorize Old Hangul Jamo',
   author      = 'Dohyun Kim',
   license     = 'Public Domain',
@@ -165,7 +165,6 @@ token.set_lua("getjamotransparency", gettransparency_index, "global")
 local penalty = node.id"penalty"
 local kern    = node.id"kern"
 local glue    = node.id"glue"
-local rule    = node.id"rule"
 local leaders = 100 -- or more
 local SETcmd  = 0   -- colorstack command 0 = set, 1 = push, 2 = pop
 local localpar = node.id"local_par"
@@ -184,8 +183,8 @@ local function process_opacity (head, opaque)
   while curr do
     if curr.list then
       curr.list, opaque = process_opacity(curr.list, opaque)
-    elseif curr.leader and curr.leader.id ~= rule then
-      curr.leader.list, opaque = process_opacity(curr.leader.list, opaque)
+--    elseif curr.leader and curr.leader.list then
+--      curr.leader.list, opaque = process_opacity(curr.leader.list, opaque)
     else
       local id = curr.id
       if opaque then
