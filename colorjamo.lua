@@ -165,15 +165,14 @@ token.set_lua("getjamotransparency", gettransparency_index, "global")
 local penalty = node.id"penalty"
 local kern    = node.id"kern"
 local glue    = node.id"glue"
-local leaders = 100 -- or more
-local SETcmd  = 0   -- colorstack command 0 = set, 1 = push, 2 = pop
+local hlist   = node.id"hlist"
 local localpar = node.id"local_par"
 local insertbefore = node.insert_before
 
 local function get_colorstack (id, cmd)
   local n = node.new("whatsit", "pdf_colorstack")
   n.stack = TRPcolorstack
-  n.command = cmd or (id and 1) or 2
+  n.command = cmd or (id and 1) or 2 -- colorstack command 0 = set, 1 = push, 2 = pop
   n.data = id and opacities[id] or nil
   return n
 end
@@ -190,15 +189,16 @@ local function process_opacity (head, opaque)
       if opaque then
         if id == penalty  then
         elseif id == kern then
-        elseif id == glue and curr.subtype < leaders then
+        elseif id == glue and not curr.leader then
         elseif id == localpar then
+        elseif id == hlist and curr.subtype == 3 then -- skip indent box
         elseif id == glyph then
           local attr = hasattr(curr, opacityjamoattr)
           if not attr then
             head = insertbefore(head, curr, get_colorstack())
             opaque = nil
           elseif attr ~= opaque then
-            head = insertbefore(head, curr, get_colorstack(attr, SETcmd))
+            head = insertbefore(head, curr, get_colorstack(attr, 0))
             opaque = attr
           end
         else
