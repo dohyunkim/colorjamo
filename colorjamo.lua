@@ -185,23 +185,21 @@ local function process_opacity (head, opaque, inner)
     else
       local id = curr.id
       if opaque then
-        if id == penalty  then
-        elseif id == kern then
-        elseif id == glue and not curr.leader then
-        elseif id == localpar then
-        elseif id == hlist then
-        elseif id == glyph then
+        if id == penalty
+          or id == kern
+          or id == glue and not curr.leader
+          or id == localpar
+          or id == hlist then
+          -- skip
+        else
           local attr = hasattr(curr, opacityjamoattr)
-          if not attr then
+          if id ~= glyph or not attr then
             head = insertbefore(head, curr, get_colorstack())
             opaque = nil
-          elseif attr ~= opaque then
+          elseif opaque ~= attr then
             head = insertbefore(head, curr, get_colorstack(attr, 0))
             opaque = attr
           end
-        else
-          head = insertbefore(head, curr, get_colorstack())
-          opaque = nil
         end
       elseif id == glyph then
         local attr = hasattr(curr, opacityjamoattr)
