@@ -60,11 +60,17 @@ local luacolorid   = oberdiek.luacolor.getvalue
 local getcolorid_index = luatexbase.new_luafunction"colorjamo_getcolorid_func"
 lua.get_functions_table()[getcolorid_index] = function ()
   local str = token.scan_argument()
+  local length = str:len()
+  assert(1 <= length and length <= 6,
+          ("package colorjamo error: wrong color expression '%s'"):format(str))
+  if length < 6 then
+    str = ("%06x"):format(tonumber(str,16))
+  end
   str = str:gsub("%x%x", function(h)
     return ("%.3g "):format(tonumber(h, 16)/255)
   end)
   local id = luacolorid(str.."rg")
-  tex.sprint(id)
+  tex.sprint(tostring(id))
 end
 token.set_lua("getluacolorid", getcolorid_index, "global")
 
