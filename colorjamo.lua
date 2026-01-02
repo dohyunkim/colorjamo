@@ -61,7 +61,7 @@ local getcolorid_index = luatexbase.new_luafunction"colorjamo_getcolorid_func"
 lua.get_functions_table()[getcolorid_index] = function ()
   local str = token.scan_argument()
   str = str:match"^%s*(.-)%s*$"
-  if str:find"[^0-9A-Fa-f]" then
+  if str:find"%X" then
     local texcode = token.is_defined"convertcolorspec"
       and "\\extractcolorspec{".. str .."}\\colorjamotmptoklist\z
           \\expandafter\\convertcolorspec\\colorjamotmptoklist{HTML}\\colorjamotmptoklist"
@@ -174,7 +174,7 @@ local gettransparency_index = luatexbase.new_luafunction"colorjamo_gettransparen
 lua.get_functions_table()[gettransparency_index] = function ()
   local num = token.scan_argument()
   num = num:match"^%s*(.-)%s*$"
-  num = num:find"[^0-9A-Fa-f]" and num or tonumber(num,16)/255
+  num = num:find"%X" and num or tonumber(num,16)/255
   num = ("%.3g"):format(num):gsub("^0*%.",".")
   tex.sprint(num)
 end
