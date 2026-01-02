@@ -60,12 +60,21 @@ local luacolorid   = oberdiek.luacolor.getvalue
 local getcolorid_index = luatexbase.new_luafunction"colorjamo_getcolorid_func"
 lua.get_functions_table()[getcolorid_index] = function ()
   local str = token.scan_argument()
-  str = str:match"^%s*(.-)%s*$"
+  str = str:gsub("%s","")
   if str:find"%X" then
-    local texcode = token.is_defined"convertcolorspec"
-      and "\\extractcolorspec{".. str .."}\\colorjamotmptoklist\z
-          \\expandafter\\convertcolorspec\\colorjamotmptoklist{HTML}\\colorjamotmptoklist"
-      or  "\\csname color_export:nnN\\endcsname{".. str .."}{HTML}\\colorjamotmptoklist"
+    local l3 = true
+    if token.is_defined"convertcolorspec" then
+      for _,v in ipairs(str:explode"!") do
+        if v:find"%D" then
+          local n = token.get_macro(("l__color_named_%s_prop"):format(v))
+          if not n or n == "" then l3 = false; break end
+        end
+      end
+    end
+    local texcode = l3
+      and "\\csname color_export:nnN\\endcsname{".. str .."}{HTML}\\colorjamotmptoklist"
+      or  "\\extractcolorspec{".. str .."}\\colorjamotmptoklist\z
+           \\expandafter\\convertcolorspec\\colorjamotmptoklist{HTML}\\colorjamotmptoklist"
     tex.runtoks(function() tex.sprint(texcode) end)
     texcode = token.get_macro"colorjamotmptoklist"
     str = texcode and texcode ~= "" and texcode or str
