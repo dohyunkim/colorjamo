@@ -1,7 +1,7 @@
 luatexbase.provides_module{
   name = 'colorjamo',
-  date = '2025/11/25',
-  version     = 0.4,
+  date = '2026/01/02',
+  version     = 0.5,
   description = 'Colorize Old Hangul Jamo',
   author      = 'Dohyun Kim',
   license     = 'Public Domain',
@@ -60,6 +60,16 @@ local luacolorid   = oberdiek.luacolor.getvalue
 local getcolorid_index = luatexbase.new_luafunction"colorjamo_getcolorid_func"
 lua.get_functions_table()[getcolorid_index] = function ()
   local str = token.scan_argument()
+  str = str:match"^%s*(.-)%s*$"
+  if str:find"[^0-9A-Fa-f]" then
+    local texcode = token.is_defined"convertcolorspec"
+      and "\\extractcolorspec{".. str .."}\\colorjamotmptoklist\z
+          \\expandafter\\convertcolorspec\\colorjamotmptoklist{HTML}\\colorjamotmptoklist"
+      or  "\\csname color_export:nnN\\endcsname{".. str .."}{HTML}\\colorjamotmptoklist"
+    tex.runtoks(function() tex.sprint(texcode) end)
+    texcode = token.get_macro"colorjamotmptoklist"
+    str = texcode and texcode ~= "" and texcode or str
+  end
   local length = str:len()
   assert(1 <= length and length <= 6,
           ("package colorjamo error: wrong color expression '%s'"):format(str))
@@ -163,7 +173,9 @@ token.set_lua("getopacityid", getopacityid_index, "global")
 local gettransparency_index = luatexbase.new_luafunction"colorjamo_gettransparency_func"
 lua.get_functions_table()[gettransparency_index] = function ()
   local num = token.scan_argument()
-  num = ("%.3g"):format(tonumber(num,16)/255):gsub("^0*%.",".")
+  num = num:match"^%s*(.-)%s*$"
+  num = num:find"[^0-9A-Fa-f]" and num or tonumber(num,16)/255
+  num = ("%.3g"):format(num):gsub("^0*%.",".")
   tex.sprint(num)
 end
 token.set_lua("getjamotransparency", gettransparency_index, "global")

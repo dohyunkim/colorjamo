@@ -36,6 +36,10 @@ A LaTeX package for colorizing Hangul jamo characters
 	\jamocolorjong{0000FF} % color of final consonants. default is blue.
 	\jamotransparency {BB} % FF: full opacity, 00: full transparency
 
+이렇게 16진수로 지시하는 방법말고도, xcolor 패키지나 l3color 모듈의 색상 표현법을 사용할 수 있다. 가령 `\jamocolorcho{red!50}`. color 패키지는 지원하지 않는다.
+
+투명도 또한 소수점 있는 10진수로 지시할 수 있다. 가령 `\jamotransparency{0.5}`. `1.0`은 완전 불투명, `0.0`은 완전 투명을 뜻한다.
+
 ## license
 
 Public domain.
