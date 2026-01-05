@@ -71,18 +71,16 @@ lua.get_functions_table()[getcolorid_index] = function ()
         end
       end
     end
-    if l3 then
-      tex.runtoks(function() tex.sprint{ "\\setbox", token.create"@tempboxa", "\\hbox{{",
-        token.create"color_select:n", "{", str, "}\\global",
-        token.create"count@", token.create"LuaCol@Attribute", "}}" } end)
-      local box = tex.getbox"@tempboxa"
-      id = box and box.head and box.head.data and luacolorid(box.head.data) or tex.getcount"count@"
-    else
-      str = str:find"%b{}" and str or ("{%s}"):format(str)
-      tex.runtoks(function() tex.sprint{ "{{\\color", str, "\\global",
-        token.create"count@", token.create"LuaCol@Attribute", "}}" } end)
-      id = tex.getcount"count@"
-    end
+    tex.runtoks(function() tex.sprint{
+      token.create"setbox", token.create"@tempboxa", token.create"hbox",
+      token.new(0,1), token.new(0,1),
+      l3 and token.create"color_select:n" or token.create"color",
+      str:find"%b{}" and "" or token.new(0,1), str, str:find"%b{}" and "" or token.new(0,2),
+      token.create"global", token.create"count@", token.create"LuaCol@Attribute",
+      token.new(0,2), token.new(0,2),
+    } end)
+    local box = tex.getbox"@tempboxa"
+    id = box and box.head and box.head.data and luacolorid(box.head.data) or tex.getcount"count@"
   else
     local length = str:len()
     assert(1 <= length and length <= 6,
