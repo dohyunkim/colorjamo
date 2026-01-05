@@ -72,15 +72,16 @@ lua.get_functions_table()[getcolorid_index] = function ()
       end
     end
     if l3 then
-      tex.runtoks(function() tex.sprint{ "\\setbox", token.create"@tempboxa",
-        "\\hbox{{", token.create"color_select:n", "{", str, "}}}" } end)
+      tex.runtoks(function() tex.sprint{ "\\setbox", token.create"@tempboxa", "\\hbox{{",
+        token.create"color_select:n", "{", str, "}\\global",
+        token.create"count@", token.create"LuaCol@Attribute", "}}" } end)
       local box = tex.getbox"@tempboxa"
-      id = luacolorid(box and box.head and box.head.data)
+      id = box and box.head and box.head.data and luacolorid(box.head.data) or tex.getcount"count@"
     else
       str = str:find"%b{}" and str or ("{%s}"):format(str)
-      tex.runtoks(function() tex.sprint{ "\\begingroup\\color", str,
-        "\\global\\let\\colorjamotempcolor", token.create"current@color", "\\endgroup" } end)
-      id = luacolorid(token.get_macro"colorjamotempcolor")
+      tex.runtoks(function() tex.sprint{ "{{\\color", str, "\\global",
+        token.create"count@", token.create"LuaCol@Attribute", "}}" } end)
+      id = tex.getcount"count@"
     end
   else
     local length = str:len()
