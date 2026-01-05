@@ -187,7 +187,7 @@ local gettransparency_index = luatexbase.new_luafunction"colorjamo_gettransparen
 lua.get_functions_table()[gettransparency_index] = function ()
   local num = token.scan_argument()
   num = num:match"^%s*(.-)%s*$"
-  num = num:find"%X" and num or tonumber(num,16)/255
+  num = num:find"%X" and ("%.3f"):format(num) or tonumber(num,16)/255
   num = ("%.3g"):format(num):gsub("^0*%.",".")
   tex.sprint(num)
 end
