@@ -59,36 +59,41 @@ local luacolorid   = oberdiek.luacolor.getvalue
 
 local getcolorid_index = luatexbase.new_luafunction"colorjamo_getcolorid_func"
 lua.get_functions_table()[getcolorid_index] = function ()
-  local str = token.scan_argument()
+  local str, id = token.scan_argument()
   str = str:gsub("%s","")
   if str:find"%X" then
     local l3 = true
-    if token.is_defined"convertcolorspec" then
+    if token.is_defined"color" then
       for _,v in ipairs(str:explode"!") do
         if v:find"%D" then
           local n = token.get_macro(("l__color_named_%s_prop"):format(v))
-          if not n or n == "" then l3 = false; break end
+          if not n or n == "" or n == token.get_macro"c_empty_prop" then l3 = false; break end
         end
       end
     end
-    local texcode = l3
-      and "\\csname color_export:nnN\\endcsname{".. str .."}{HTML}\\colorjamotmptoklist"
-      or  "\\extractcolorspec{".. str .."}\\colorjamotmptoklist\z
-           \\expandafter\\convertcolorspec\\colorjamotmptoklist{HTML}\\colorjamotmptoklist"
-    tex.runtoks(function() tex.sprint(texcode) end)
-    texcode = token.get_macro"colorjamotmptoklist"
-    str = texcode and texcode ~= "" and texcode or str
+    if l3 then
+      tex.runtoks(function() tex.sprint{ "\\setbox", token.create"@tempboxa",
+        "\\hbox{{", token.create"color_select:n", "{", str, "}}}" } end)
+      local box = tex.getbox"@tempboxa"
+      id = luacolorid(box and box.head and box.head.data)
+    else
+      str = str:find"%b{}" and str or ("{%s}"):format(str)
+      tex.runtoks(function() tex.sprint{ "\\begingroup\\color", str,
+        "\\global\\let\\colorjamotempcolor", token.create"current@color", "\\endgroup" } end)
+      id = luacolorid(token.get_macro"colorjamotempcolor")
+    end
+  else
+    local length = str:len()
+    assert(1 <= length and length <= 6,
+            ("package colorjamo error: wrong color expression '%s'"):format(str))
+    if length < 6 then
+      str = ("%06x"):format(tonumber(str,16))
+    end
+    str = str:gsub("%x%x", function(h)
+      return ("%.3g "):format(tonumber(h, 16)/255)
+    end)
+    id = luacolorid(table.concat{str, "rg ", str, "RG"})
   end
-  local length = str:len()
-  assert(1 <= length and length <= 6,
-          ("package colorjamo error: wrong color expression '%s'"):format(str))
-  if length < 6 then
-    str = ("%06x"):format(tonumber(str,16))
-  end
-  str = str:gsub("%x%x", function(h)
-    return ("%.3g "):format(tonumber(h, 16)/255)
-  end)
-  local id = luacolorid(str.."rg")
   tex.sprint(tostring(id))
 end
 token.set_lua("getluacolorid", getcolorid_index, "global")
